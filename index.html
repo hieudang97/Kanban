@@ -1,237 +1,198 @@
 <!DOCTYPE html>
-<html lang="vi" data-theme="light">
+<html lang="vi">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kanban Board</title>
 <style>
-  :root {
-    --bg:#f5f6fa; --panel:#fff; --text:#0f172a; --muted:#64748b;
-    --border:#e5e7eb; --accent:#30D158;
-  }
-  [data-theme="dark"] {
-    --bg:#0b0f1a; --panel:#141a2a; --text:#e8eefc; --muted:#94a3b8;
-    --border:rgba(255,255,255,.08);
-  }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:system-ui, sans-serif; background:var(--bg); color:var(--text); transition:background .2s; }
-  
-  .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-  h1 { font-size: 24px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-  
-  .add-task-form { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap; }
-  .add-task-form input, .add-task-form select { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
-  .new-btn, .save-btn { background: var(--accent); border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; }
-  .cancel-btn { background: #ef4444; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; color: white; }
-  .icon-btn { background: var(--panel); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; cursor: pointer; }
-  
-  .kanban-board { display: flex; gap: 20px; overflow-x: auto; padding: 20px 0; }
-  .column { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; min-width: 320px; width: 320px; padding: 16px; }
-  .column-header { display: flex; justify-content: space-between; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
-  .task-count { background: var(--bg); padding: 2px 8px; border-radius: 20px; font-size: 12px; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #f0f2f5; padding: 20px; }
+  .container { max-width: 1400px; margin: 0 auto; }
+  h1 { margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+  button { background: #30D158; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+  .add-form { background: white; border-radius: 12px; padding: 16px; margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .add-form input, .add-form select { padding: 8px 12px; border-radius: 6px; border: 1px solid #ddd; }
+  .kanban { display: flex; gap: 20px; overflow-x: auto; }
+  .column { background: white; border-radius: 12px; min-width: 300px; width: 300px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .column h3 { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #30D158; display: flex; justify-content: space-between; }
   .task-list { min-height: 400px; }
-  .task-card { background: var(--bg); border-radius: 12px; padding: 12px; margin-bottom: 10px; cursor: grab; border-left: 3px solid var(--accent); }
-  .task-card:hover { transform: translateY(-2px); }
-  .task-title { font-size: 14px; font-weight: 500; margin-bottom: 8px; }
-  .task-tag { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 6px; margin-right: 8px; }
-  .task-tag.DEV { background: #8b5cf6; color: white; }
-  .task-tag.OPS { background: #f59e0b; color: white; }
-  .task-tag.ECOMP { background: #10b981; color: white; }
-  .task-meta { font-size: 11px; color: var(--muted); margin-top: 8px; display: flex; gap: 12px; }
-  .loading { text-align: center; padding: 40px; color: var(--muted); }
-  
-  @media (max-width: 700px) {
-    .kanban-board { flex-direction: column; }
-    .column { width: 100%; }
-  }
+  .task-card { background: #f8f9fa; border-radius: 8px; padding: 10px; margin-bottom: 8px; cursor: grab; border-left: 3px solid #30D158; }
+  .task-card:active { cursor: grabbing; }
+  .task-title { font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+  .task-tag { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-right: 8px; background: #30D158; color: white; }
+  .task-meta { font-size: 11px; color: #666; display: flex; gap: 12px; margin-top: 6px; }
+  .delete-btn { background: #ef4444; color: white; border: none; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 10px; }
+  .loading { text-align: center; padding: 40px; color: #666; }
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>
-    📋 Kanban Board
-    <div style="display: flex; gap: 8px;">
-      <button class="icon-btn" id="themeBtn">🌓</button>
-      <button class="new-btn" id="showAddBtn">+ New Task</button>
-    </div>
-  </h1>
+  <h1>📋 Kanban Board <button onclick="showForm()">+ New Task</button></h1>
   
-  <div id="addTaskForm" style="display:none;" class="add-task-form">
-    <input type="text" id="taskTitle" placeholder="Task title..." style="flex:2">
-    <select id="taskTag">
-      <option value="DEV">DEV</option>
-      <option value="OPS">OPS</option>
-      <option value="ECOMP">ECOMP</option>
+  <div id="addForm" class="add-form" style="display:none;">
+    <input type="text" id="title" placeholder="Task title" style="flex:2">
+    <select id="tag">
+      <option value="DEV">DEV</option><option value="OPS">OPS</option>
+      <option value="ECOMP">ECOMP</option><option value="TAX">TAX</option>
     </select>
-    <select id="taskStatus">
-      <option value="Mới">Mới</option>
-      <option value="Đang làm">Đang làm</option>
+    <select id="status">
+      <option value="Mới">Mới</option><option value="Đang làm">Đang làm</option>
+      <option value="Đang treo">Đang treo</option><option value="Đang review">Đang review</option>
       <option value="Đã xong">Đã xong</option>
     </select>
-    <input type="text" id="taskAssignee" placeholder="Assignee" value="Anh Bình" style="flex:1">
-    <button class="save-btn" onclick="addNewTask()">Save</button>
-    <button class="cancel-btn" onclick="hideForm()">Cancel</button>
+    <input type="text" id="assignee" placeholder="Assignee" value="Anh Bình">
+    <button onclick="addTask()">Save</button>
+    <button onclick="hideForm()">Cancel</button>
   </div>
   
-  <div class="kanban-board" id="kanbanBoard">
-    <div class="loading">⏳ Loading tasks...</div>
-  </div>
+  <div class="kanban" id="kanban"></div>
 </div>
 
 <script>
-// 👇👇👇 THAY URL NÀY BẰNG URL APPS SCRIPT CỦA BẠN 👇👇👇
-const API_URL = 'https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnQHf_fitzuY2JbyxBnlMuOpMHt5gza1Wv3QYfim00mWsythDRIUo-VvyznGmpRI3JEtTr_Nxky36nDec_Vhm0DyreithB1rj9RiGao-G2d2ous-6rjAgU7NpoD0f70Z3YdyMrJuZJyw6nXfScb6BkanxkZviEY5d6LOCOR3OY_Uwz2IaPmO9DV5wQJlJrU4uYI3sMA1hOv17BkBqZ9IeYDKHUswNWtCt_axSSMF39Om4gKpXoCLuuzvZ4fWdRQ8I7_5ePqm-fJfVoTQJOJA8YmXfTcfetnKA5t8SvC1&lib=MAi-51MnhPHbdP1CMzF3CQLX_6e1a697D';
+// 👇👇👇 THAY URL NÀY BẰNG URL CỦA BẠN 👇👇👇
+const API_URL = 'https://script.google.com/macros/s/AKfycbwXFTZP-8q9sG7QIobPCOg7qcDMtQzPz2Q_cJcBXqFovBJ_abYf9S76EOMgJ3oUfeG3xg/exec';
 
-// Theme
-const root = document.documentElement;
-document.getElementById('themeBtn').onclick = () => {
-  const isDark = root.getAttribute('data-theme') === 'dark';
-  root.setAttribute('data-theme', isDark ? 'light' : 'dark');
-};
+function showForm() { document.getElementById('addForm').style.display = 'flex'; }
+function hideForm() { document.getElementById('addForm').style.display = 'none'; document.getElementById('title').value = ''; }
 
-// Form
-function hideForm() {
-  document.getElementById('addTaskForm').style.display = 'none';
-  document.getElementById('taskTitle').value = '';
-}
-document.getElementById('showAddBtn').onclick = () => {
-  document.getElementById('addTaskForm').style.display = 'flex';
-};
-
-// JSONP Load Tasks
-function loadTasks() {
-  const board = document.getElementById('kanbanBoard');
-  board.innerHTML = '<div class="loading">⏳ Loading tasks...</div>';
+async function loadTasks() {
+  const kanban = document.getElementById('kanban');
+  kanban.innerHTML = '<div class="loading">⏳ Loading...</div>';
   
-  const callbackName = 'cb_' + Date.now();
-  
-  window[callbackName] = function(data) {
-    delete window[callbackName];
-    const script = document.getElementById('jsonp_script');
-    if (script) script.remove();
+  try {
+    const response = await fetch(`${API_URL}?path=tasks`);
+    const data = await response.json();
     
-    if (data.success && data.data && data.data.length > 0) {
+    if (data.success && data.data) {
       renderKanban(data.data);
     } else {
-      board.innerHTML = '<div class="loading">📭 No tasks. Click "+ New Task" to create!</div>';
+      kanban.innerHTML = '<div class="loading">No tasks found</div>';
     }
-  };
-  
-  const script = document.createElement('script');
-  script.id = 'jsonp_script';
-  script.src = `${API_URL}?path=tasks&callback=${callbackName}`;
-  script.onerror = () => {
-    board.innerHTML = '<div class="loading">🔌 Cannot connect to API. Check URL: ' + API_URL + '</div>';
-    delete window[callbackName];
-  };
-  document.body.appendChild(script);
+  } catch (error) {
+    kanban.innerHTML = `<div class="loading">❌ Error: ${error.message}<br>Check Console for details</div>`;
+    console.error('Fetch error:', error);
+  }
 }
 
-// Add Task
-async function addNewTask() {
-  const title = document.getElementById('taskTitle')?.value.trim();
-  if (!title) return alert('Please enter task title!');
+async function addTask() {
+  const title = document.getElementById('title').value.trim();
+  if (!title) return alert('Please enter title!');
   
-  const newTask = {
+  const task = {
     title: title,
-    tag: document.getElementById('taskTag')?.value,
-    status: document.getElementById('taskStatus')?.value,
-    assignee: document.getElementById('taskAssignee')?.value,
+    tag: document.getElementById('tag').value,
+    status: document.getElementById('status').value,
+    assignee: document.getElementById('assignee').value,
     due_time: new Date().toLocaleTimeString()
   };
   
   try {
-    const res = await fetch(`${API_URL}?path=tasks`, {
+    const response = await fetch(`${API_URL}?path=tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newTask)
+      body: JSON.stringify(task)
     });
-    const result = await res.json();
+    const result = await response.json();
+    
     if (result.success) {
-      alert('✅ Task added!');
       hideForm();
       loadTasks();
     } else {
-      alert('❌ Error: ' + result.error);
+      alert('Error: ' + result.error);
     }
-  } catch (err) {
-    alert('❌ Error: ' + err.message);
+  } catch (error) {
+    alert('Error: ' + error.message);
   }
 }
 
-// Update Status
-async function updateTaskStatus(id, newStatus) {
+async function updateStatus(taskId, newStatus) {
   try {
-    await fetch(`${API_URL}?path=tasks/${id}`, {
+    await fetch(`${API_URL}?path=tasks/${taskId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus })
     });
     loadTasks();
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error('Update error:', error);
   }
 }
 
-// Render
+async function deleteTask(taskId, taskTitle) {
+  if (!confirm(`Delete "${taskTitle}"?`)) return;
+  try {
+    await fetch(`${API_URL}?path=tasks/${taskId}`, { method: 'DELETE' });
+    loadTasks();
+  } catch (error) {
+    console.error('Delete error:', error);
+  }
+}
+
 function renderKanban(tasks) {
-  const statuses = ['Mới', 'Đang làm', 'Đã xong'];
-  const board = document.getElementById('kanbanBoard');
-  board.innerHTML = '';
+  const statuses = ['Mới', 'Đang làm', 'Đang treo', 'Đang review', 'Đã xong'];
+  const kanban = document.getElementById('kanban');
+  kanban.innerHTML = '';
   
   statuses.forEach(status => {
     const columnTasks = tasks.filter(t => t.status === status);
-    const col = document.createElement('div');
-    col.className = 'column';
-    col.innerHTML = `
-      <div class="column-header">
-        <h3>📌 ${status}</h3>
-        <span class="task-count">${columnTasks.length}</span>
-      </div>
-      <div class="task-list" data-status="${status}">
-        ${columnTasks.map(task => `
-          <div class="task-card" draggable="true" data-id="${task.id}">
-            <div class="task-title">
-              <span class="task-tag ${task.tag}">${task.tag}</span>
-              ${escapeHtml(task.title)}
-            </div>
-            <div class="task-meta">
-              👤 ${task.assignee || 'Unassigned'} | 🕐 ${task.due_time || ''}
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    `;
-    board.appendChild(col);
+    const column = document.createElement('div');
+    column.className = 'column';
+    column.innerHTML = `<h3>${status} <span style="background:#e0e0e0; padding:2px 8px; border-radius:20px; font-size:12px;">${columnTasks.length}</span></h3>`;
+    
+    const taskList = document.createElement('div');
+    taskList.className = 'task-list';
+    taskList.setAttribute('data-status', status);
+    
+    columnTasks.forEach(task => {
+      const card = document.createElement('div');
+      card.className = 'task-card';
+      card.setAttribute('draggable', 'true');
+      card.setAttribute('data-id', task.id);
+      card.innerHTML = `
+        <div class="task-title">
+          <span class="task-tag ${task.tag}">${task.tag || 'TASK'}</span>
+          ${escapeHtml(task.title)}
+          <button class="delete-btn" onclick="deleteTask(${task.id}, '${escapeHtml(task.title).replace(/'/g, "\\'")}')">🗑️</button>
+        </div>
+        <div class="task-meta">
+          <span>👤 ${escapeHtml(task.assignee) || 'Unassigned'}</span>
+          <span>🕐 ${task.due_time || ''}</span>
+        </div>
+      `;
+      
+      card.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', task.id);
+      });
+      
+      taskList.appendChild(card);
+    });
+    
+    column.appendChild(taskList);
+    kanban.appendChild(column);
   });
   
-  attachDragEvents();
-}
-
-// Drag & Drop
-function attachDragEvents() {
-  const cards = document.querySelectorAll('.task-card');
-  const lists = document.querySelectorAll('.task-list');
-  
-  cards.forEach(card => {
-    card.setAttribute('draggable', 'true');
-    card.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', card.dataset.id));
-  });
-  
-  lists.forEach(list => {
-    list.addEventListener('dragover', e => e.preventDefault());
-    list.addEventListener('drop', async e => {
+  // Add drop event listeners
+  document.querySelectorAll('.task-list').forEach(list => {
+    list.addEventListener('dragover', (e) => e.preventDefault());
+    list.addEventListener('drop', async (e) => {
       e.preventDefault();
-      const id = e.dataTransfer.getData('text/plain');
-      const newStatus = list.dataset.status;
-      if (id && newStatus) await updateTaskStatus(parseInt(id), newStatus);
+      const taskId = e.dataTransfer.getData('text/plain');
+      const newStatus = list.getAttribute('data-status');
+      if (taskId && newStatus) {
+        await updateStatus(parseInt(taskId), newStatus);
+      }
     });
   });
 }
 
 function escapeHtml(str) {
   if (!str) return '';
-  return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+  return str.replace(/[&<>]/g, (m) => {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
 }
 
 loadTasks();
