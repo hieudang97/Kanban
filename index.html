@@ -266,8 +266,11 @@ navItems.forEach(item => {
 });
 
 // ========== KANBAN FUNCTIONALITY ==========
-// 🔧 THAY URL NÀY BẰNG URL APPS SCRIPT CỦA BẠN
-const API_URL = 'https://script.google.com/macros/s/AKfycbxV1fF5_J0PkPtfwYyCB1w1oAaBvyT87plJdemieU3ATK3z7D7aZnEXtvQPcJv_qL9PHQ/exec';
+// 🔧 THAY URL NÀY BẰNG URL APPS SCRIPT CỦA BẠN (đã deploy với quyền "Anyone")
+const ORIGINAL_API_URL = 'https://script.google.com/macros/s/AKfycbxTZcbX82EV5kWJI76R2PY6TuB-ryqbwYaFXnQ7WejiuIT5-h-QDq1A8h6JxxPsz9gCzw/exec';
+
+// Dùng CORS proxy để tránh lỗi CORS
+const API_URL = 'https://corsproxy.io/?' + encodeURIComponent(ORIGINAL_API_URL);
 
 // Lưu nội dung dashboard gốc
 const originalMainContent = document.querySelector('main.main').innerHTML;
@@ -314,7 +317,6 @@ let currentView = 'dashboard';
 function showDashboard() {
   document.querySelector('main.main').innerHTML = originalMainContent;
   currentView = 'dashboard';
-  // Gắn lại event theme
   const newThemeBtn = document.getElementById('theme');
   if (newThemeBtn) {
     newThemeBtn.onclick = () => {
@@ -327,7 +329,6 @@ function showKanban() {
   document.querySelector('main.main').innerHTML = kanbanContent;
   currentView = 'kanban';
   
-  // Gắn theme button cho Kanban
   const themeKanbanBtn = document.getElementById('themeKanban');
   if (themeKanbanBtn) {
     themeKanbanBtn.onclick = () => {
@@ -335,7 +336,6 @@ function showKanban() {
     };
   }
   
-  // Gắn event cho nút Add Task
   const showAddBtn = document.getElementById('showAddTaskBtn');
   if (showAddBtn) {
     showAddBtn.onclick = () => {
@@ -358,7 +358,13 @@ async function loadTasks() {
   if (!board) return;
   
   try {
-    const response = await fetch(`${API_URL}?path=tasks`);
+    // Gọi API qua CORS proxy
+    const response = await fetch(`${API_URL}?path=tasks`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
     const result = await response.json();
     if (result.success && result.data) {
       renderKanban(result.data);
@@ -487,13 +493,9 @@ function escapeHtml(str) {
 // Gắn sự kiện chuyển đổi view cho mục Kanban trên sidebar
 const kanbanNavItem = document.getElementById('kanbanNavItem');
 if (kanbanNavItem) {
-  // Lưu lại onclick gốc nếu có
-  const originalKanbanClick = kanbanNavItem.onclick;
   kanbanNavItem.onclick = (e) => {
-    // Cập nhật active state
     navItems.forEach(nav => nav.classList.remove('active'));
     kanbanNavItem.classList.add('active');
-    // Hiển thị Kanban
     showKanban();
   };
 }
@@ -501,7 +503,6 @@ if (kanbanNavItem) {
 // Đảm bảo các mục khác quay về dashboard
 navItems.forEach(item => {
   if (item !== kanbanNavItem) {
-    const originalClick = item.onclick;
     item.onclick = () => {
       navItems.forEach(nav => nav.classList.remove('active'));
       item.classList.add('active');
