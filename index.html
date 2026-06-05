@@ -3,14 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kanban Board</title>
+<title>Kanban Board - JSONP</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: system-ui, sans-serif; background: #f0f2f5; padding: 20px; }
   .container { max-width: 1400px; margin: 0 auto; }
-  h1 { margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+  h1 { margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
   button { background: #30D158; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; }
-  .add-form { background: white; border-radius: 12px; padding: 16px; margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .new-btn { background: #30D158; color: #1a1a1a; }
+  .save-btn { background: #30D158; }
+  .cancel-btn { background: #ef4444; color: white; }
+  .add-form { background: white; border-radius: 12px; padding: 16px; margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
   .add-form input, .add-form select { padding: 8px 12px; border-radius: 6px; border: 1px solid #ddd; }
   .kanban { display: flex; gap: 20px; overflow-x: auto; }
   .column { background: white; border-radius: 12px; min-width: 300px; width: 300px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
@@ -18,16 +21,24 @@
   .task-list { min-height: 400px; }
   .task-card { background: #f8f9fa; border-radius: 8px; padding: 10px; margin-bottom: 8px; cursor: grab; border-left: 3px solid #30D158; }
   .task-card:active { cursor: grabbing; }
-  .task-title { font-weight: 600; font-size: 13px; margin-bottom: 6px; }
-  .task-tag { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-right: 8px; background: #30D158; color: white; }
+  .task-title { font-weight: 600; font-size: 13px; margin-bottom: 6px; word-break: break-word; }
+  .task-tag { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-right: 8px; }
+  .task-tag.DEV { background: #8b5cf6; color: white; }
+  .task-tag.OPS { background: #f59e0b; color: white; }
+  .task-tag.ECOMP { background: #10b981; color: white; }
+  .task-tag.TAX { background: #ef4444; color: white; }
   .task-meta { font-size: 11px; color: #666; display: flex; gap: 12px; margin-top: 6px; }
-  .delete-btn { background: #ef4444; color: white; border: none; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 10px; }
+  .delete-btn { background: #ef4444; color: white; border: none; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 10px; margin-left: 8px; }
   .loading { text-align: center; padding: 40px; color: #666; }
+  .error { text-align: center; padding: 40px; color: #ef4444; }
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>📋 Kanban Board <button onclick="showForm()">+ New Task</button></h1>
+  <h1>
+    📋 Kanban Board
+    <button class="new-btn" onclick="showForm()">+ New Task</button>
+  </h1>
   
   <div id="addForm" class="add-form" style="display:none;">
     <input type="text" id="title" placeholder="Task title" style="flex:2">
@@ -41,71 +52,115 @@
       <option value="Đã xong">Đã xong</option>
     </select>
     <input type="text" id="assignee" placeholder="Assignee" value="Anh Bình">
-    <button onclick="addTask()">Save</button>
-    <button onclick="hideForm()">Cancel</button>
+    <button class="save-btn" onclick="addTask()">Save</button>
+    <button class="cancel-btn" onclick="hideForm()">Cancel</button>
   </div>
   
-  <div class="kanban" id="kanban"></div>
+  <div class="kanban" id="kanban">
+    <div class="loading">⏳ Loading tasks...</div>
+  </div>
 </div>
 
 <script>
-// 👇👇👇 THAY URL NÀY BẰNG URL CỦA BẠN 👇👇👇
+// ========== CẤU HÌNH ==========
+// 👇👇👇 URL CỦA BẠN (đã deploy với quyền "Anyone") 👇👇👇
 const API_URL = 'https://script.google.com/macros/s/AKfycbwXFTZP-8q9sG7QIobPCOg7qcDMtQzPz2Q_cJcBXqFovBJ_abYf9S76EOMgJ3oUfeG3xg/exec';
 
-function showForm() { document.getElementById('addForm').style.display = 'flex'; }
-function hideForm() { document.getElementById('addForm').style.display = 'none'; document.getElementById('title').value = ''; }
-
-async function loadTasks() {
-  const kanban = document.getElementById('kanban');
-  kanban.innerHTML = '<div class="loading">⏳ Loading...</div>';
-  
-  try {
-    const response = await fetch(`${API_URL}?path=tasks`);
-    const data = await response.json();
-    
-    if (data.success && data.data) {
-      renderKanban(data.data);
-    } else {
-      kanban.innerHTML = '<div class="loading">No tasks found</div>';
-    }
-  } catch (error) {
-    kanban.innerHTML = `<div class="loading">❌ Error: ${error.message}<br>Check Console for details</div>`;
-    console.error('Fetch error:', error);
-  }
+// ========== FORM ==========
+function showForm() {
+  document.getElementById('addForm').style.display = 'flex';
+}
+function hideForm() {
+  document.getElementById('addForm').style.display = 'none';
+  document.getElementById('title').value = '';
 }
 
+// ========== JSONP - LOAD TASKS (CHẮC CHẮN KHÔNG CORS) ==========
+function loadTasks() {
+  const kanban = document.getElementById('kanban');
+  kanban.innerHTML = '<div class="loading">⏳ Loading tasks...</div>';
+  
+  // Tạo tên callback duy nhất
+  const callbackName = 'jsonp_callback_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
+  
+  // Hàm xử lý callback
+  window[callbackName] = function(data) {
+    console.log('JSONP response:', data);
+    
+    // Dọn dẹp
+    delete window[callbackName];
+    const script = document.getElementById('jsonp_script');
+    if (script) script.remove();
+    
+    if (data && data.success && data.data) {
+      renderKanban(data.data);
+    } else {
+      kanban.innerHTML = '<div class="loading">📭 No tasks. Click "+ New Task" to create!</div>';
+    }
+  };
+  
+  // Tạo script tag để gọi JSONP
+  const script = document.createElement('script');
+  script.id = 'jsonp_script';
+  script.src = `${API_URL}?path=tasks&callback=${callbackName}`;
+  script.onerror = function() {
+    kanban.innerHTML = '<div class="error">❌ Cannot connect to API. Please check:<br>- Apps Script deployed with "Anyone" access<br>- URL is correct</div>';
+    delete window[callbackName];
+    this.remove();
+  };
+  
+  document.body.appendChild(script);
+  
+  // Timeout sau 10 giây
+  setTimeout(() => {
+    if (window[callbackName]) {
+      kanban.innerHTML = '<div class="error">⏱️ Request timeout. Check your internet connection.</div>';
+      delete window[callbackName];
+      const scriptEl = document.getElementById('jsonp_script');
+      if (scriptEl) scriptEl.remove();
+    }
+  }, 10000);
+}
+
+// ========== ADD TASK (POST - vẫn dùng fetch nhưng không cần CORS) ==========
 async function addTask() {
   const title = document.getElementById('title').value.trim();
-  if (!title) return alert('Please enter title!');
+  if (!title) {
+    alert('Please enter task title!');
+    return;
+  }
   
-  const task = {
+  const newTask = {
     title: title,
     tag: document.getElementById('tag').value,
     status: document.getElementById('status').value,
-    assignee: document.getElementById('assignee').value,
-    due_time: new Date().toLocaleTimeString()
+    assignee: document.getElementById('assignee').value || 'Anh Bình',
+    due_time: new Date().toLocaleTimeString('vi-VN')
   };
   
   try {
     const response = await fetch(`${API_URL}?path=tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(task)
+      body: JSON.stringify(newTask)
     });
     const result = await response.json();
     
     if (result.success) {
+      alert('✅ Task added successfully!');
       hideForm();
       loadTasks();
     } else {
-      alert('Error: ' + result.error);
+      alert('❌ Error: ' + (result.error || 'Unknown error'));
     }
   } catch (error) {
-    alert('Error: ' + error.message);
+    console.error('Add task error:', error);
+    alert('❌ Error: ' + error.message);
   }
 }
 
-async function updateStatus(taskId, newStatus) {
+// ========== UPDATE TASK STATUS ==========
+async function updateTaskStatus(taskId, newStatus) {
   try {
     await fetch(`${API_URL}?path=tasks/${taskId}`, {
       method: 'PUT',
@@ -115,19 +170,25 @@ async function updateStatus(taskId, newStatus) {
     loadTasks();
   } catch (error) {
     console.error('Update error:', error);
+    loadTasks(); // Reload anyway
   }
 }
 
+// ========== DELETE TASK ==========
 async function deleteTask(taskId, taskTitle) {
-  if (!confirm(`Delete "${taskTitle}"?`)) return;
+  if (!confirm(`Delete task "${taskTitle}"?`)) return;
   try {
-    await fetch(`${API_URL}?path=tasks/${taskId}`, { method: 'DELETE' });
+    await fetch(`${API_URL}?path=tasks/${taskId}`, {
+      method: 'DELETE'
+    });
     loadTasks();
   } catch (error) {
     console.error('Delete error:', error);
+    loadTasks();
   }
 }
 
+// ========== RENDER KANBAN ==========
 function renderKanban(tasks) {
   const statuses = ['Mới', 'Đang làm', 'Đang treo', 'Đang review', 'Đã xong'];
   const kanban = document.getElementById('kanban');
@@ -137,7 +198,12 @@ function renderKanban(tasks) {
     const columnTasks = tasks.filter(t => t.status === status);
     const column = document.createElement('div');
     column.className = 'column';
-    column.innerHTML = `<h3>${status} <span style="background:#e0e0e0; padding:2px 8px; border-radius:20px; font-size:12px;">${columnTasks.length}</span></h3>`;
+    column.innerHTML = `
+      <h3>
+        ${status}
+        <span style="background:#e0e0e0; padding:2px 8px; border-radius:20px; font-size:12px;">${columnTasks.length}</span>
+      </h3>
+    `;
     
     const taskList = document.createElement('div');
     taskList.className = 'task-list';
@@ -150,7 +216,7 @@ function renderKanban(tasks) {
       card.setAttribute('data-id', task.id);
       card.innerHTML = `
         <div class="task-title">
-          <span class="task-tag ${task.tag}">${task.tag || 'TASK'}</span>
+          <span class="task-tag ${task.tag || 'DEV'}">${task.tag || 'TASK'}</span>
           ${escapeHtml(task.title)}
           <button class="delete-btn" onclick="deleteTask(${task.id}, '${escapeHtml(task.title).replace(/'/g, "\\'")}')">🗑️</button>
         </div>
@@ -162,6 +228,10 @@ function renderKanban(tasks) {
       
       card.addEventListener('dragstart', (e) => {
         e.dataTransfer.setData('text/plain', task.id);
+        card.style.opacity = '0.5';
+      });
+      card.addEventListener('dragend', (e) => {
+        card.style.opacity = '1';
       });
       
       taskList.appendChild(card);
@@ -173,13 +243,19 @@ function renderKanban(tasks) {
   
   // Add drop event listeners
   document.querySelectorAll('.task-list').forEach(list => {
-    list.addEventListener('dragover', (e) => e.preventDefault());
+    list.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    });
     list.addEventListener('drop', async (e) => {
       e.preventDefault();
       const taskId = e.dataTransfer.getData('text/plain');
       const newStatus = list.getAttribute('data-status');
       if (taskId && newStatus) {
-        await updateStatus(parseInt(taskId), newStatus);
+        const currentCard = document.querySelector(`.task-card[data-id="${taskId}"]`);
+        if (currentCard && currentCard.parentElement.getAttribute('data-status') !== newStatus) {
+          await updateTaskStatus(parseInt(taskId), newStatus);
+        }
       }
     });
   });
@@ -187,14 +263,15 @@ function renderKanban(tasks) {
 
 function escapeHtml(str) {
   if (!str) return '';
-  return str.replace(/[&<>]/g, (m) => {
-    if (m === '&') return '&amp;';
-    if (m === '<') return '&lt;';
-    if (m === '>') return '&gt;';
-    return m;
-  });
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
+// ========== KHỞI ĐỘNG ==========
 loadTasks();
 </script>
 </body>
