@@ -269,8 +269,9 @@ navItems.forEach(item => {
 // 🔧 THAY URL NÀY BẰNG URL APPS SCRIPT CỦA BẠN (đã deploy với quyền "Anyone")
 const ORIGINAL_API_URL = 'https://script.google.com/macros/s/AKfycbxTZcbX82EV5kWJI76R2PY6TuB-ryqbwYaFXnQ7WejiuIT5-h-QDq1A8h6JxxPsz9gCzw/exec';
 
-// Dùng CORS proxy để tránh lỗi CORS
-const API_URL = 'https://corsproxy.io/?' + encodeURIComponent(ORIGINAL_API_URL);
+// Dùng cors-anywhere làm proxy (đã fix CORS)
+const PROXY_URL = 'https://cors-anywhere.herokuapp.com/';
+const API_URL = PROXY_URL + ORIGINAL_API_URL;
 
 // Lưu nội dung dashboard gốc
 const originalMainContent = document.querySelector('main.main').innerHTML;
@@ -357,15 +358,22 @@ async function loadTasks() {
   const board = document.getElementById('kanbanBoard');
   if (!board) return;
   
+  board.innerHTML = '<div class="loading">⏳ Loading tasks...</div>';
+  
   try {
-    // Gọi API qua CORS proxy
+    console.log('Calling API:', `${API_URL}?path=tasks`);
     const response = await fetch(`${API_URL}?path=tasks`, {
       method: 'GET',
       headers: {
+        'Origin': window.location.origin,
         'Accept': 'application/json'
       }
     });
+    
+    console.log('Response status:', response.status);
     const result = await response.json();
+    console.log('Result:', result);
+    
     if (result.success && result.data) {
       renderKanban(result.data);
     } else {
@@ -373,13 +381,16 @@ async function loadTasks() {
     }
   } catch (error) {
     console.error('API Error:', error);
-    board.innerHTML = '<div class="loading">🔌 Cannot connect to API. Check URL and CORS.</div>';
+    board.innerHTML = '<div class="loading">🔌 Cannot connect to API. Make sure you have requested access at <a href="https://cors-anywhere.herokuapp.com/corsdemo" target="_blank">cors-anywhere demo</a></div>';
   }
 }
 
 async function addNewTask() {
   const title = document.getElementById('taskTitle')?.value;
-  if (!title) return;
+  if (!title) {
+    alert('Please enter task title!');
+    return;
+  }
   
   const newTask = {
     title: title,
@@ -389,28 +400,49 @@ async function addNewTask() {
     due_time: new Date().toLocaleTimeString()
   };
   
+  console.log('Adding task:', newTask);
+  
   try {
-    await fetch(`${API_URL}?path=tasks`, {
+    const response = await fetch(`${API_URL}?path=tasks`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Origin': window.location.origin
+      },
       body: JSON.stringify(newTask)
     });
-    hideAddTaskForm();
-    loadTasks();
+    
+    console.log('Response status:', response.status);
+    const result = await response.json();
+    console.log('Result:', result);
+    
+    if (result.success) {
+      alert('✅ Task added successfully!');
+      hideAddTaskForm();
+      loadTasks();
+    } else {
+      alert('❌ Error: ' + (result.error || 'Unknown error'));
+    }
   } catch (error) {
-    console.error('Error adding task:', error);
-    alert('Failed to add task: ' + error.message);
+    console.error('Error:', error);
+    alert('❌ Connection error: ' + error.message + '\n\nMake sure you have requested access at https://cors-anywhere.herokuapp.com/corsdemo');
   }
 }
 
 async function updateTaskStatus(taskId, newStatus) {
   try {
-    await fetch(`${API_URL}?path=tasks/${taskId}`, {
+    const response = await fetch(`${API_URL}?path=tasks/${taskId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Origin': window.location.origin
+      },
       body: JSON.stringify({ status: newStatus })
     });
-    loadTasks();
+    const result = await response.json();
+    if (result.success) {
+      loadTasks();
+    }
   } catch (error) {
     console.error('Error updating task:', error);
   }
